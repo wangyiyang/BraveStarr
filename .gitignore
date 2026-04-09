@@ -12,6 +12,8 @@ venv/
 # Local runtime data
 data/
 *.db
+.env
+.env.*
 
 # OS / editor
 .DS_Store
