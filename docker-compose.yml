@@ -1,0 +1,29 @@
+services:
+  brave-starr:
+    build: .
+    image: brave-starr:latest
+    container_name: brave-starr
+    ports:
+      - "8000:8000"
+    volumes:
+      - brave-starr-data:/app/data
+    environment:
+      - DATABASE_PATH=/app/data/brave_starr.db
+    # 健康检查 - 检查 HTTP 服务
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; import sys; sys.exit(0 if urlopen('http://localhost:8000/health').status == 200 else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  brave-starr-data:
+    driver: local

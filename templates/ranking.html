@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}排名 - BraveStarr{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>🏆 指数排名</h2>
+    
+    <div style="margin-bottom: 20px;">
+        <label>选择日期：</label>
+        <input type="date" id="dateInput" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #ddd;">
+        
+        <label style="margin-left: 20px;">分类筛选：</label>
+        <select id="categorySelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #ddd;">
+            <option value="">全部</option>
+            <option value="OpenClaw">OpenClaw</option>
+            <option value="Agent">Agent</option>
+            <option value="Skill">Skill</option>
+            <option value="MCP">MCP</option>
+            <option value="AI编程">AI编程</option>
+            <option value="RAG">RAG</option>
+            <option value="其他">其他</option>
+        </select>
+        
+        <button onclick="loadRanking()" style="margin-left: 20px; padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            查询
+        </button>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>排名</th>
+                <th>关键词</th>
+                <th>分类</th>
+                <th>指数值</th>
+                <th>环比变化</th>
+                <th>趋势</th>
+            </tr>
+        </thead>
+        <tbody id="rankingBody">
+            <tr><td colspan="6" style="text-align: center;">点击查询加载数据</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h2>📊 分类分布</h2>
+    <div class="chart-container">
+        <canvas id="categoryPieChart"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let pieChart = null;
+
+async function loadRanking() {
+    const date = document.getElementById('dateInput').value;
+    const category = document.getElementById('categorySelect').value;
+    
+    let url = '/api/ranking';
+    const params = [];
+    if (date) params.push('date=' + date);
+    if (category) params.push('category=' + category);
+    if (params.length) url += '?' + params.join('&');
+    
+    const res = await fetch(url);
+    const result = await res.json();
+    
+    updateRankingTable(result.data);
+    updatePieChart(result.data);
+}
+
+function updateRankingTable(data) {
+    const tbody = document.getElementById('rankingBody');
+    tbody.innerHTML = '';
+    
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">暂无数据</td></tr>';
+        return;
+    }
+    
+    data.forEach((d, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>#${i + 1}</strong></td>
+            <td><strong>${d.keyword}</strong></td>
+            <td><span class="badge badge-primary">${d.category}</span></td>
+            <td>${d.index_value.toLocaleString()}</td>
+            <td>${d.change_percent ? d.change_percent.toFixed(2) + '%' : '-'}</td>
+            <td>${getTrendIcon(d.trend)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updatePieChart(data) {
+    const ctx = document.getElementById('categoryPieChart').getContext('2d');
+    
+    if (pieChart) {
+        pieChart.destroy();
+    }
+    
+    // 按分类统计
+    const categoryCount = {};
+    data.forEach(d => {
+        categoryCount[d.category] = (categoryCount[d.category] || 0) + 1;
+    });
+    
+    pieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(categoryCount),
+            datasets: [{
+                data: Object.values(categoryCount),
+                backgroundColor: [
+                    '#667eea', '#764ba2', '#2ecc71', '#f39c12', '#e74c3c', '#3498db', '#9b59b6'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
+            }
+        }
+    });
+}
+
+function getTrendIcon(trend) {
+    if (trend === '↑') return '<span style="color: #e74c3c;">📈 ↑</span>';
+    if (trend === '↓') return '<span style="color: #2ecc71;">📉 ↓</span>';
+    return '<span style="color: #95a5a6;">➡️ →</span>';
+}
+
+// 默认加载
+loadRanking();
+</script>
+{% endblock %}
