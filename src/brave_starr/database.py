@@ -1,5 +1,6 @@
 """数据库连接和会话管理."""
 
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator
@@ -7,11 +8,23 @@ from typing import Any, Generator
 from sqlalchemy import Engine, create_engine, event
 from sqlmodel import Session, SQLModel
 
-# 数据库文件路径
-DB_DIR = Path(__file__).parent.parent.parent / "data"
-DB_PATH = DB_DIR / "brave_starr.db"
+DEFAULT_DB_DIR = Path(__file__).resolve().parents[2] / "data"
+DEFAULT_DB_PATH = DEFAULT_DB_DIR / "brave_starr.db"
 
 _engine: Engine | None = None
+
+
+def resolve_db_path() -> Path:
+    """解析数据库文件路径.
+
+    优先读取环境变量，便于容器化部署与开源用户自定义本地数据目录。
+    为兼容现有部署，保留 `DATABASE_PATH`；新接入优先使用 `BRAVE_STARR_DB_PATH`。
+    """
+    configured_path = os.getenv("BRAVE_STARR_DB_PATH") or os.getenv("DATABASE_PATH")
+    if configured_path:
+        return Path(configured_path).expanduser().resolve()
+
+    return DEFAULT_DB_PATH
 
 
 def get_engine() -> Engine:
@@ -22,11 +35,11 @@ def get_engine() -> Engine:
     """
     global _engine
     if _engine is None:
-        # 确保数据目录存在
-        DB_DIR.mkdir(parents=True, exist_ok=True)
+        db_path = resolve_db_path()
+        db_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 创建引擎 (SQLite)
-        db_url = f"sqlite:///{DB_PATH}"
+        db_url = f"sqlite:///{db_path}"
         _engine = create_engine(
             db_url,
             echo=False,  # 生产环境关闭 SQL 日志
