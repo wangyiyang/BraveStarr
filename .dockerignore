@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+
+# 虚拟环境
+.venv
+venv
+
+# 数据目录（容器内重新创建）
+data/
+
+# 测试
+tests/
+.pytest_cache
+.coverage
+htmlcov/
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# 文档
+docs/
+*.md
+
+# 保留 README.md（pyproject.toml 依赖）
+!README.md
+
+# Docker
+Dockerfile
+.dockerignore

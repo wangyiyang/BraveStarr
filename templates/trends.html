@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}趋势分析 - BraveStarr{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>📈 关键词趋势分析</h2>
+    
+    <div style="margin-bottom: 20px;">
+        <label>选择关键词：</label>
+        <select id="keywordSelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #ddd;">
+            <option value="">全部</option>
+        </select>
+        
+        <label style="margin-left: 20px;">时间范围：</label>
+        <select id="daysSelect" style="padding: 8px 15px; border-radius: 6px; border: 1px solid #ddd;">
+            <option value="7">7天</option>
+            <option value="30" selected>30天</option>
+            <option value="90">90天</option>
+        </select>
+        
+        <button onclick="loadTrend()" style="margin-left: 20px; padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer;">
+            查询
+        </button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<div class="card">
+    <h2>📊 数据明细</h2>
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>关键词</th>
+                <th>指数值</th>
+                <th>环比变化</th>
+                <th>趋势</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr><td colspan="5" style="text-align: center;">点击查询加载数据</td></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let trendChart = null;
+
+// 加载关键词列表
+async function loadKeywords() {
+    const res = await fetch('/api/keywords');
+    const keywords = await res.json();
+    const select = document.getElementById('keywordSelect');
+    keywords.forEach(k => {
+        const option = document.createElement('option');
+        option.value = k.keyword;
+        option.textContent = k.keyword;
+        select.appendChild(option);
+    });
+}
+
+// 加载趋势数据
+async function loadTrend() {
+    const keyword = document.getElementById('keywordSelect').value;
+    const days = document.getElementById('daysSelect').value;
+    
+    const url = `/api/trend?days=${days}${keyword ? '&keyword=' + keyword : ''}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    
+    // 更新图表
+    updateChart(data, keyword || '所有关键词');
+    
+    // 更新表格
+    updateTable(data);
+}
+
+function updateChart(data, label) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    
+    if (trendChart) {
+        trendChart.destroy();
+    }
+    
+    // 按关键词分组
+    const grouped = {};
+    data.forEach(d => {
+        if (!grouped[d.keyword]) grouped[d.keyword] = [];
+        grouped[d.keyword].push(d);
+    });
+    
+    const colors = ['#667eea', '#764ba2', '#2ecc71', '#f39c12', '#e74c3c', '#3498db'];
+    const datasets = Object.keys(grouped).map((kw, i) => ({
+        label: kw,
+        data: grouped[kw].map(d => ({ x: d.record_date, y: d.index_value })),
+        borderColor: colors[i % colors.length],
+        backgroundColor: colors[i % colors.length] + '20',
+        fill: false,
+        tension: 0.4
+    }));
+    
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: label + ' 趋势图'
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category',
+                    title: { display: true, text: '日期' }
+                },
+                y: {
+                    title: { display: true, text: '指数值' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function updateTable(data) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    
+    // 按日期降序
+    const sorted = [...data].sort((a, b) => new Date(b.record_date) - new Date(a.record_date));
+    
+    sorted.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${d.record_date}</td>
+            <td><strong>${d.keyword}</strong></td>
+            <td>${d.index_value.toLocaleString()}</td>
+            <td>${d.change_percent ? d.change_percent.toFixed(2) + '%' : '-'}</td>
+            <td>${getTrendIcon(d.trend)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function getTrendIcon(trend) {
+    if (trend === '↑') return '<span style="color: #e74c3c;">📈 ↑</span>';
+    if (trend === '↓') return '<span style="color: #2ecc71;">📉 ↓</span>';
+    return '<span style="color: #95a5a6;">➡️ →</span>';
+}
+
+// 初始化
+loadKeywords();
+loadTrend();
+</script>
+{% endblock %}
